@@ -1,235 +1,325 @@
 # ESP32 Embedded REST API Web Server with WebSocket
 
-ESP32 IoT gateway using Arduino/PlatformIO, C++, ESPAsyncWebServer, ArduinoJson and FreeRTOS.
+An ESP32-based IoT web server developed using **C++, Arduino/PlatformIO, FreeRTOS, ESPAsyncWebServer, ArduinoJson, and WebSocket**. The system provides REST APIs for sensor monitoring, device configuration, and relay control, while WebSocket enables real-time sensor updates to connected clients.
 
 ## Features
 
-- REST API
-  - `GET /sensors`
-  - `POST /config`
-  - `PUT /relay`
-  - `GET /heap`
-- JSON request/response handling with ArduinoJson
-- HTTP status/error handling
-- Async WebSocket endpoint `/ws`
-- Multiple WebSocket clients
-- Browser dashboard
-- FreeRTOS sensor, WebSocket and maintenance tasks
-- Mutex-protected shared state
-- Heap and stack monitoring
-- Simulated temperature/humidity values
-- Relay GPIO control
+* REST API server using HTTP
+* `GET /sensors` — returns live sensor readings as JSON
+* `POST /config` — updates device configuration
+* `PUT /relay` — controls relay ON/OFF
+* `GET /heap` — monitors ESP32 memory
+* JSON parsing and serialization using ArduinoJson
+* WebSocket server at `/ws`
+* Real-time sensor data updates without polling
+* Multiple WebSocket client support
+* Browser-based monitoring dashboard
+* FreeRTOS task-based architecture
+* Mutex for safe sharing of sensor/configuration data
+* Heap and task stack monitoring
+* Python client for REST API and WebSocket testing
+* Simulated temperature and humidity sensor values
 
-## Project structure
+## Project Structure
 
 ```text
-esp32-rest-websocket/
-├── platformio.ini
+ESP32-REST-WebSocket/
+│
 ├── src/
 │   └── main.cpp
+│
 ├── python/
 │   └── test_client.py
+│
 ├── certs/
 │   └── README.txt
-└── README.md
+│
+├── platformio.ini
+├── README.md
+└── .gitignore
 ```
+
+### File Description
+
+| File               | Description                              |
+| ------------------ | ---------------------------------------- |
+| `main.cpp`         | Main ESP32 firmware                      |
+| `test_client.py`   | Python REST and WebSocket testing client |
+| `platformio.ini`   | PlatformIO configuration and libraries   |
+| `certs/README.txt` | HTTPS certificate instructions           |
+| `README.md`        | Project documentation                    |
+| `.gitignore`       | Ignores build and private files          |
 
 ## Installation
 
-1. Install VS Code and PlatformIO.
-2. Open this project folder.
-3. Change `WIFI_SSID` and `WIFI_PASSWORD` in `src/main.cpp`.
-4. Connect the ESP32.
-5. Build and upload.
-6. Open the serial monitor at 115200 baud.
+### 1. Requirements
 
-Required libraries are declared in `platformio.ini`.
+* ESP32 development board
+* USB cable
+* VS Code
+* PlatformIO
+* Wi-Fi connection
+* Python 3.x
 
-## Running
+### 2. Clone the Repository
 
-After upload, the serial monitor prints the ESP32 IP address.
+```bash
+git clone YOUR_GITHUB_REPOSITORY_URL
+cd ESP32-REST-WebSocket
+```
+
+### 3. Configure Wi-Fi
 
 Open:
 
 ```text
-http://ESP32_IP/
+src/main.cpp
 ```
+
+Change:
+
+```cpp
+const char* WIFI_SSID = "YOUR_WIFI_NAME";
+const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+```
+
+Enter your Wi-Fi credentials.
+
+### 4. Build the Project
+
+```bash
+pio run
+```
+
+### 5. Upload to ESP32
+
+Connect the ESP32 to your computer and run:
+
+```bash
+pio run --target upload
+```
+
+### 6. Open Serial Monitor
+
+```bash
+pio device monitor
+```
+
+Use:
+
+```text
+115200 baud
+```
+
+After connecting to Wi-Fi, the ESP32 displays its IP address.
 
 Example:
 
 ```text
-http://192.168.1.105/
+Wi-Fi connected
+IP address: 192.168.1.105
+HTTP server started
+FreeRTOS tasks started
 ```
 
-The browser dashboard connects to `/ws` and receives live updates.
+## Running Algorithm
 
-## REST API
-
-### GET /sensors
-
-```bash
-curl http://192.168.1.105/sensors
-```
-
-### POST /config
-
-```bash
-curl -X POST http://192.168.1.105/config \
--H "Content-Type: application/json" \
--d "{\"sampling_ms\":3000,\"temperature_threshold\":32,\"humidity_threshold\":75}"
-```
-
-### PUT /relay
-
-```bash
-curl -X PUT http://192.168.1.105/relay \
--H "Content-Type: application/json" \
--d "{\"state\":true}"
-```
-
-Turn off:
-
-```bash
-curl -X PUT http://192.168.1.105/relay \
--H "Content-Type: application/json" \
--d "{\"state\":false}"
-```
-
-### GET /heap
-
-```bash
-curl http://192.168.1.105/heap
-```
-
-## Python client
-
-Install:
-
-```bash
-pip install requests websocket-client
-```
-
-Change `ESP32_IP` in `python/test_client.py`, then run:
-
-```bash
-python python/test_client.py
-```
-
-## WebSocket
-
-Endpoint:
+The overall working process is:
 
 ```text
-ws://ESP32_IP/ws
+Start
+  │
+  ▼
+Initialize ESP32
+  │
+  ▼
+Connect to Wi-Fi
+  │
+  ▼
+Initialize GPIO and Mutex
+  │
+  ▼
+Start REST API Server
+  │
+  ▼
+Start WebSocket Server
+  │
+  ▼
+Create FreeRTOS Tasks
+  │
+  ├───────────────┐
+  │               │
+  ▼               ▼
+Sensor Task   WebSocket Task
+  │               │
+  ▼               ▼
+Read/Generate   Get Sensor
+Sensor Data     Data
+  │               │
+  └───────┬───────┘
+          ▼
+     Shared Data
+       + Mutex
+          │
+          ▼
+   Send JSON through
+      WebSocket
+          │
+          ▼
+    Browser/Python
+       Client
 ```
 
-The ESP32 broadcasts sensor JSON approximately every 2 seconds.
-
-## Wiring
-
-### Relay module
+### REST API Algorithm
 
 ```text
-ESP32 GPIO 26 -> Relay IN
-ESP32 3.3V    -> Relay VCC (only if supported by the module)
-ESP32 GND     -> Relay GND
+Client sends HTTP request
+          │
+          ▼
+ESP32 receives request
+          │
+          ▼
+Check HTTP method and endpoint
+          │
+          ▼
+Parse JSON if required
+          │
+          ▼
+Validate input
+          │
+          ├── Invalid → 400 Error
+          │
+          ▼
+Update/read device data
+          │
+          ▼
+Create JSON response
+          │
+          ▼
+Send HTTP response
 ```
 
-Check your relay module's voltage/current requirements before connecting it.
-
-Do not connect mains voltage directly to an ESP32 GPIO. Use an appropriately rated isolated relay module and proper electrical safety practices.
-
-### Sensor
-
-The current project uses simulated sensor values so the software can be tested without hardware. A DHT11/DHT22 can be added later.
-
-## FreeRTOS architecture
-
-### SensorTask
-
-- Core 1
-- Priority 2
-- Stack 4096
-- Updates temperature/humidity
-
-### WebSocketTask
-
-- Core 1
-- Priority 1
-- Stack 4096
-- Broadcasts live JSON
-
-### ServerTask
-
-- Core 0
-- Priority 1
-- Stack 4096
-- Performs lightweight maintenance and memory monitoring
-
-A mutex protects shared sensor/configuration data.
-
-Stack sizes should be tuned using `uxTaskGetStackHighWaterMark()` after stress testing rather than assuming 4096 bytes is optimal.
-
-## Memory management
-
-The firmware reports:
-
-- `ESP.getFreeHeap()`
-- `ESP.getMinFreeHeap()`
-- `heap_caps_get_largest_free_block()`
-- `uxTaskGetStackHighWaterMark()`
-
-Avoid unnecessarily large local arrays and large temporary JSON documents.
-
-## HTTPS
-
-This Arduino/ESPAsyncWebServer version is intentionally HTTP-only.
-
-For a production HTTPS implementation, use ESP-IDF's `esp_https_server` rather than simply changing port 80 to 443.
-
-Generate a development self-signed certificate with OpenSSL:
-
-```bash
-openssl genrsa -out server.key 2048
-
-openssl req -new -x509 \
--key server.key \
--out server.crt \
--days 365 \
--subj "/CN=esp32.local"
-```
-
-A self-signed certificate is not automatically trusted by normal browsers.
-
-HTTPS consists conceptually of:
+### WebSocket Algorithm
 
 ```text
-TCP connection
-      ↓
-TLS handshake
-      ↓
-certificate verification / key exchange
-      ↓
-encrypted TLS session
-      ↓
-HTTP
+Browser/Python Client
+          │
+          ▼
+Connect to /ws
+          │
+          ▼
+ESP32 accepts connection
+          │
+          ▼
+Sensor Task updates data
+          │
+          ▼
+WebSocket Task creates JSON
+          │
+          ▼
+Broadcast data to clients
+          │
+          ▼
+Clients display live data
 ```
 
-Keep the private key (`server.key`) secret.
+## Technologies Used
 
-## Development order
+* **ESP32** — Main microcontroller
+* **C++** — Firmware programming
+* **Arduino Framework** — Embedded development framework
+* **PlatformIO** — Build and dependency management
+* **FreeRTOS** — Multitasking and task management
+* **ESPAsyncWebServer** — Asynchronous HTTP/WebSocket server
+* **ArduinoJson** — JSON parsing and serialization
+* **Wi-Fi** — Network communication
+* **HTTP REST API** — Device control and data access
+* **WebSocket** — Real-time communication
+* **Python** — API testing
+* **Requests** — HTTP client library
+* **websocket-client** — Python WebSocket client
+* **OpenSSL** — Self-signed certificate generation
 
-1. REST API
-2. WebSocket
-3. FreeRTOS tasks and synchronization
-4. Memory/stack testing
-5. HTTPS using ESP-IDF
-6. Python automated testing
+## Current Progress
 
-## Current sensor behavior
+* [x] ESP32 Wi-Fi connection
+* [x] REST API server
+* [x] `GET /sensors`
+* [x] `POST /config`
+* [x] `PUT /relay`
+* [x] `GET /heap`
+* [x] JSON communication
+* [x] WebSocket server
+* [x] Multiple WebSocket clients
+* [x] Browser dashboard
+* [x] FreeRTOS task separation
+* [x] Mutex-based synchronization
+* [x] Heap monitoring
+* [x] Stack monitoring
+* [x] Python REST API client
+* [x] Python WebSocket client
+* [x] Error handling
+* [x] Simulated sensor readings
+* [ ] Real sensor integration
+* [ ] HTTPS implementation
+* [ ] Authentication
+* [ ] OTA firmware update
 
-Temperature and humidity are simulated in software. Replace the simulation in `sensorTask()` with a real sensor driver when hardware is available.
+## Feature Improvements
 
-## License
+### 1. Real Sensor Integration
 
-Use and modify for educational/project purposes.
+Replace simulated temperature and humidity values with a real **DHT11, DHT22, or BME280** sensor.
+
+### 2. HTTPS Support
+
+Implement secure communication using **TLS/HTTPS** with ESP-IDF `esp_https_server`.
+
+### 3. Authentication
+
+Add username/password or token-based authentication to protect REST API endpoints.
+
+### 4. Persistent Configuration
+
+Store sampling intervals and thresholds in ESP32 **NVS** so configuration remains after reboot.
+
+### 5. MQTT Integration
+
+Add MQTT communication for connecting the ESP32 to cloud or IoT platforms.
+
+### 6. OTA Updates
+
+Add Over-The-Air firmware updates so new firmware can be installed without USB.
+
+### 7. Advanced Web Dashboard
+
+Add:
+
+* Live temperature graphs
+* Humidity graphs
+* Relay control
+* Configuration panel
+* Device status
+* Network information
+
+### 8. Security Improvements
+
+Add:
+
+* HTTPS
+* Authentication
+* Secure credential storage
+* Input validation
+* Certificate management
+
+### 9. Hardware Expansion
+
+Add additional sensors such as:
+
+* Light sensor
+* Soil moisture sensor
+* Ultrasonic sensor
+* Pressure sensor
+* Air-quality sensor
+
+
